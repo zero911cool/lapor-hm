@@ -243,23 +243,33 @@
         }
         // Pertahankan HM yang baru dicatat di HP tapi belum terkirim
         var lastHm = j.lastHm || {};
-        queue.forEach(function (it) { lastHm[it.unit] = it.hmAkhir; });
+        queue.forEach(function (it) { setLastHm(lastHm, it.unit, it.hmAkhir); });
         meta = { units: j.units || [], lastHm: lastHm, at: Date.now() };
         save(KEY.meta, meta);
         renderUnits(); unitHint();
       })
       .catch(function () {});
   }
+  function isBackdated() {
+    var t = $('tanggal').value;
+    return !!t && t < today();
+  }
+  function setLastHm(obj, unit, hm) {
+    if (typeof hm !== 'number') return;
+    if (typeof obj[unit] !== 'number' || hm > obj[unit]) obj[unit] = hm;
+  }
   function unitHint() {
     var u = $('unit').value.trim().toUpperCase();
     var last = (meta.lastHm || {})[u];
     if (u && typeof last === 'number') {
-      $('unitHint').textContent = 'HM akhir terakhir unit ini: ' + fmt(last);
-      if (!$('hmAwal').value) { $('hmAwal').value = String(last).replace('.', ','); recalc(); }
+      $('unitHint').textContent = 'HM terakhir unit ini: ' + fmt(last) +
+        (isBackdated() ? ' (laporan tanggal mundur: isi HM sesuai hari itu)' : '');
+      if (!$('hmAwal').value && !isBackdated()) { $('hmAwal').value = String(last).replace('.', ','); recalc(); }
     } else {
       $('unitHint').textContent = '';
     }
   }
+  $('tanggal').addEventListener('change', unitHint);
   $('unit').addEventListener('change', unitHint);
   $('unit').addEventListener('blur', unitHint);
 
@@ -299,7 +309,13 @@
     // Peringatan yang perlu dikonfirmasi dengan ketukan kedua
     var warnings = [];
     var last = (meta.lastHm || {})[unit];
-    if (typeof last === 'number' && Math.abs(a - last) > 0.05) warnings.push('HM awal (' + fmt(a) + ') beda dengan HM akhir terakhir unit ini (' + fmt(last) + ').');
+    if (typeof last === 'number') {
+      if (!isBackdated() && Math.abs(a - last) > 0.05) {
+        warnings.push('HM awal (' + fmt(a) + ') beda dengan HM terakhir unit ini (' + fmt(last) + ').');
+      } else if (isBackdated() && b > last + 0.05) {
+        warnings.push('Tanggalnya mundur, tapi HM akhir (' + fmt(b) + ') lebih besar dari HM terakhir yang tercatat (' + fmt(last) + ').');
+      }
+    }
     if (b - a > 24) warnings.push('Jam kerja ' + fmt(b - a) + ' jam, lebih dari 24 jam.');
     if (!(meta.units || []).length || (meta.units || []).some(function (u) { return u.kode === unit; })) {
       // unit dikenal atau daftar unit belum diisi
@@ -321,7 +337,7 @@
     queue.push(item);
     save(KEY.q, queue);
     meta.lastHm = meta.lastHm || {};
-    meta.lastHm[unit] = b;
+    setLastHm(meta.lastHm, unit, b);
     save(KEY.meta, meta);
 
     // Kosongkan isian, tanggal tetap
