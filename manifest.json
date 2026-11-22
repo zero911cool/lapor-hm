@@ -1,0 +1,17 @@
+{
+  "name": "Lapor HM & Solar",
+  "short_name": "Lapor HM",
+  "description": "Laporan HM dan solar unit dari lapangan, tetap bisa diisi tanpa sinyal.",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#F4F6FA",
+  "theme_color": "#1F3864",
+  "lang": "id",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

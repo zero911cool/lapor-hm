@@ -1,0 +1,418 @@
+<!doctype html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1F3864">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<title>Lapor HM & Solar</title>
+<style>
+  :root {
+    --navy: #1F3864; --navy-2: #2C4A7E; --bg: #F4F6FA; --card: #FFFFFF;
+    --text: #1A2233; --muted: #5B6578; --line: #D9DEE8;
+    --ok: #1E7B4F; --ok-bg: #E3F3EA; --warn: #8A5A00; --warn-bg: #FFF4D6;
+    --err: #A61B1B; --err-bg: #FBE4E4;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text);
+    font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; font-size: 16px; }
+  header { position: sticky; top: 0; z-index: 5; background: var(--navy); color: #fff;
+    padding: calc(12px + env(safe-area-inset-top)) 16px 12px; display: flex; align-items: center; gap: 10px; }
+  header h1 { font-size: 18px; margin: 0; flex: 1; font-weight: 650; }
+  .pill { font-size: 13px; padding: 4px 10px; border-radius: 999px; font-weight: 600; }
+  .pill.on { background: #D7F0E2; color: var(--ok); }
+  .pill.off { background: #FFE1B3; color: #7A4B00; }
+  main { padding: 14px 14px 40px; max-width: 560px; margin: 0 auto; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .card h2 { font-size: 15px; margin: 0 0 12px; color: var(--navy); }
+  label { display: block; font-size: 14px; font-weight: 600; margin: 12px 0 6px; color: var(--muted); }
+  label:first-of-type { margin-top: 0; }
+  input, textarea { width: 100%; font-size: 18px; padding: 12px; border: 1px solid var(--line);
+    border-radius: 10px; background: #fff; color: var(--text); font-family: inherit; }
+  textarea { font-size: 16px; min-height: 70px; resize: vertical; }
+  input:focus, textarea:focus { outline: 2px solid var(--navy-2); border-color: var(--navy-2); }
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .hint { font-size: 13px; color: var(--muted); margin-top: 6px; }
+  .calc { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .calc div { background: var(--bg); border-radius: 10px; padding: 10px; text-align: center; }
+  .calc b { display: block; font-size: 20px; color: var(--navy); }
+  .calc span { font-size: 12px; color: var(--muted); }
+  button { width: 100%; font-size: 17px; font-weight: 650; padding: 14px; border: 0; border-radius: 12px;
+    background: var(--navy); color: #fff; margin-top: 16px; font-family: inherit; }
+  button:active { background: var(--navy-2); }
+  button.secondary { background: #E6EAF2; color: var(--navy); margin-top: 10px; }
+  button.link { background: none; color: var(--navy-2); width: auto; padding: 6px 0; margin: 0; font-size: 14px; text-decoration: underline; }
+  button.confirm { background: #B26A00; }
+  .msg { margin-top: 12px; padding: 10px 12px; border-radius: 10px; font-size: 14px; display: none; }
+  .msg.show { display: block; }
+  .msg.ok { background: var(--ok-bg); color: var(--ok); }
+  .msg.warn { background: var(--warn-bg); color: var(--warn); }
+  .msg.err { background: var(--err-bg); color: var(--err); }
+  ul.list { list-style: none; margin: 0; padding: 0; }
+  ul.list li { padding: 10px 0; border-top: 1px solid var(--line); font-size: 14px; }
+  ul.list li:first-child { border-top: 0; }
+  ul.list .t { font-weight: 650; }
+  ul.list .s { color: var(--muted); font-size: 13px; }
+  .count { font-weight: 700; }
+  .foot { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; }
+  [hidden] { display: none !important; }
+</style>
+<script src="config.js"></script>
+</head>
+<body>
+<header>
+  <h1>Lapor HM & Solar</h1>
+  <span id="net" class="pill"></span>
+</header>
+
+<main>
+  <!-- Pengaturan awal, cukup sekali per HP -->
+  <section id="setup" class="card" hidden>
+    <h2>Pengaturan awal</h2>
+    <label for="sNama">Nama pengirim</label>
+    <input id="sNama" autocomplete="name" placeholder="Nama Anda">
+    <label for="sPin">PIN</label>
+    <input id="sPin" type="password" inputmode="numeric" placeholder="PIN dari admin">
+    <button id="sSave" type="button">Simpan</button>
+    <div id="sMsg" class="msg"></div>
+  </section>
+
+  <section id="app" hidden>
+    <form id="f" class="card" novalidate>
+      <h2>Laporan baru</h2>
+      <label for="tanggal">Tanggal</label>
+      <input id="tanggal" type="date" required>
+
+      <label for="unit">Unit</label>
+      <input id="unit" list="unitList" autocapitalize="characters" autocomplete="off" placeholder="Kode unit" required>
+      <datalist id="unitList"></datalist>
+      <div id="unitHint" class="hint"></div>
+
+      <div class="row">
+        <div>
+          <label for="hmAwal">HM awal</label>
+          <input id="hmAwal" inputmode="decimal" placeholder="0">
+        </div>
+        <div>
+          <label for="hmAkhir">HM akhir</label>
+          <input id="hmAkhir" inputmode="decimal" placeholder="0">
+        </div>
+      </div>
+
+      <label for="solar">Solar (liter)</label>
+      <input id="solar" inputmode="decimal" placeholder="0">
+
+      <label for="catatan">Catatan (opsional)</label>
+      <textarea id="catatan" placeholder="Kondisi unit, lokasi, kendala"></textarea>
+
+      <div class="calc">
+        <div><b id="cJam">–</b><span>Jam kerja</span></div>
+        <div><b id="cKons">–</b><span>Liter per jam</span></div>
+      </div>
+
+      <button id="btnSave" type="submit">Simpan laporan</button>
+      <div id="msg" class="msg"></div>
+    </form>
+
+    <section class="card">
+      <h2>Menunggu terkirim: <span id="qCount" class="count">0</span></h2>
+      <ul id="qList" class="list"></ul>
+      <div id="qMsg" class="hint"></div>
+      <button id="btnSync" class="secondary" type="button">Kirim sekarang</button>
+    </section>
+
+    <section class="card">
+      <h2>Sudah terkirim</h2>
+      <ul id="sentList" class="list"></ul>
+    </section>
+
+    <div class="foot">
+      Pengirim: <b id="who"></b> · <button id="btnReset" class="link" type="button">Ganti pengirim</button>
+    </div>
+  </section>
+</main>
+
+<script>
+(function () {
+  'use strict';
+
+  var ENDPOINT = ((window.APP_CONFIG || {}).ENDPOINT || '').trim();
+  var KEY = { cfg: 'hm.cfg', q: 'hm.queue', sent: 'hm.sent', meta: 'hm.meta' };
+  var $ = function (id) { return document.getElementById(id); };
+
+  function load(k, d) { try { var v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } }
+  function save(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} }
+
+  var cfg = load(KEY.cfg, null);
+  var queue = load(KEY.q, []);
+  var sent = load(KEY.sent, []);
+  var meta = load(KEY.meta, { units: [], lastHm: {} });
+  var syncing = false;
+  var pendingConfirm = null;
+  var lastSyncError = '';
+
+  // ---------- Angka ----------
+  function parseNum(v) {
+    if (v === null || v === undefined) return null;
+    var s = String(v).replace(/\s/g, '');
+    if (!s) return null;
+    if (s.indexOf('.') >= 0 && s.indexOf(',') >= 0) s = s.replace(/\./g, '').replace(',', '.');
+    else s = s.replace(',', '.');
+    var n = Number(s);
+    return isFinite(n) ? n : null;
+  }
+  function fmt(n, dec) {
+    if (n === null || n === undefined || !isFinite(n)) return '–';
+    return n.toLocaleString('id-ID', { maximumFractionDigits: dec === undefined ? 1 : dec });
+  }
+  function today() {
+    var d = new Date();
+    return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+  }
+  function tglID(iso) { var p = String(iso).split('-'); return p.length === 3 ? p[2] + '/' + p[1] + '/' + p[0] : iso; }
+  function uid() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID();
+    return Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+  }
+  function esc(s) { return String(s).replace(/[&<>"']/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]; }); }
+
+  function show(el, text, kind) {
+    el.textContent = text;
+    el.className = 'msg show ' + kind;
+  }
+  function hide(el) { el.className = 'msg'; el.textContent = ''; }
+
+  // ---------- Status sinyal ----------
+  function renderNet() {
+    var on = navigator.onLine;
+    $('net').textContent = on ? 'Online' : 'Offline';
+    $('net').className = 'pill ' + (on ? 'on' : 'off');
+  }
+
+  // ---------- Pengaturan ----------
+  function showSetup() {
+    $('setup').hidden = false; $('app').hidden = true;
+    $('sNama').value = cfg ? cfg.nama : '';
+    $('sPin').value = '';
+  }
+  function showApp() {
+    $('setup').hidden = true; $('app').hidden = false;
+    $('who').textContent = cfg.nama;
+    if (!$('tanggal').value) $('tanggal').value = today();
+    renderUnits(); renderLists(); recalc();
+  }
+  $('sSave').addEventListener('click', function () {
+    var nama = $('sNama').value.trim();
+    var pin = $('sPin').value.trim();
+    if (!nama || !pin) { show($('sMsg'), 'Nama dan PIN wajib diisi.', 'err'); return; }
+    cfg = { nama: nama, pin: pin };
+    save(KEY.cfg, cfg);
+    hide($('sMsg'));
+    showApp();
+    refreshMeta(); sync();
+  });
+  $('btnReset').addEventListener('click', function () {
+    if (queue.length) {
+      show($('msg'), 'Masih ada ' + queue.length + ' laporan yang belum terkirim. Kirim dulu sebelum ganti pengirim.', 'warn');
+      return;
+    }
+    showSetup();
+  });
+
+  // ---------- Daftar unit dan HM terakhir ----------
+  function renderUnits() {
+    var dl = $('unitList');
+    dl.innerHTML = '';
+    (meta.units || []).forEach(function (u) {
+      var o = document.createElement('option');
+      o.value = u.kode;
+      if (u.ket) o.label = u.ket;
+      dl.appendChild(o);
+    });
+  }
+  function refreshMeta() {
+    if (!ENDPOINT || !cfg || !navigator.onLine) return;
+    fetch(ENDPOINT + '?pin=' + encodeURIComponent(cfg.pin))
+      .then(function (r) { return r.json(); })
+      .then(function (j) {
+        if (!j.ok) {
+          if (j.error === 'PIN salah') show($('msg'), 'PIN salah. Ketuk "Ganti pengirim" dan masukkan PIN yang benar.', 'err');
+          return;
+        }
+        // Pertahankan HM yang baru dicatat di HP tapi belum terkirim
+        var lastHm = j.lastHm || {};
+        queue.forEach(function (it) { lastHm[it.unit] = it.hmAkhir; });
+        meta = { units: j.units || [], lastHm: lastHm, at: Date.now() };
+        save(KEY.meta, meta);
+        renderUnits(); unitHint();
+      })
+      .catch(function () {});
+  }
+  function unitHint() {
+    var u = $('unit').value.trim().toUpperCase();
+    var last = (meta.lastHm || {})[u];
+    if (u && typeof last === 'number') {
+      $('unitHint').textContent = 'HM akhir terakhir unit ini: ' + fmt(last);
+      if (!$('hmAwal').value) { $('hmAwal').value = String(last).replace('.', ','); recalc(); }
+    } else {
+      $('unitHint').textContent = '';
+    }
+  }
+  $('unit').addEventListener('change', unitHint);
+  $('unit').addEventListener('blur', unitHint);
+
+  // ---------- Hitung otomatis ----------
+  function recalc() {
+    var a = parseNum($('hmAwal').value), b = parseNum($('hmAkhir').value), s = parseNum($('solar').value);
+    var jam = (a !== null && b !== null) ? b - a : null;
+    $('cJam').textContent = jam === null ? '–' : fmt(jam);
+    $('cKons').textContent = (jam !== null && jam > 0 && s !== null) ? fmt(s / jam) : '–';
+    resetConfirm();
+  }
+  ['hmAwal', 'hmAkhir', 'solar', 'unit', 'tanggal'].forEach(function (id) { $(id).addEventListener('input', recalc); });
+
+  function resetConfirm() {
+    pendingConfirm = null;
+    $('btnSave').textContent = 'Simpan laporan';
+    $('btnSave').classList.remove('confirm');
+  }
+
+  // ---------- Simpan laporan ----------
+  $('f').addEventListener('submit', function (ev) {
+    ev.preventDefault();
+    var msg = $('msg');
+    var tanggal = $('tanggal').value;
+    var unit = $('unit').value.trim().toUpperCase();
+    var a = parseNum($('hmAwal').value);
+    var b = parseNum($('hmAkhir').value);
+    var s = parseNum($('solar').value);
+    var catatan = $('catatan').value.trim();
+
+    if (!tanggal) return show(msg, 'Tanggal wajib diisi.', 'err');
+    if (!unit) return show(msg, 'Unit wajib diisi.', 'err');
+    if (a === null || b === null) return show(msg, 'HM awal dan HM akhir wajib diisi angka.', 'err');
+    if ($('solar').value.trim() && s === null) return show(msg, 'Solar harus berupa angka.', 'err');
+    if (b < a) return show(msg, 'HM akhir lebih kecil dari HM awal. Periksa lagi angkanya.', 'err');
+
+    // Peringatan yang perlu dikonfirmasi dengan ketukan kedua
+    var warnings = [];
+    var last = (meta.lastHm || {})[unit];
+    if (typeof last === 'number' && Math.abs(a - last) > 0.05) warnings.push('HM awal (' + fmt(a) + ') beda dengan HM akhir terakhir unit ini (' + fmt(last) + ').');
+    if (b - a > 24) warnings.push('Jam kerja ' + fmt(b - a) + ' jam, lebih dari 24 jam.');
+    if (!(meta.units || []).length || (meta.units || []).some(function (u) { return u.kode === unit; })) {
+      // unit dikenal atau daftar unit belum diisi
+    } else {
+      warnings.push('Unit ' + unit + ' tidak ada di daftar unit.');
+    }
+    var sig = [tanggal, unit, a, b, s].join('|');
+    if (warnings.length && pendingConfirm !== sig) {
+      pendingConfirm = sig;
+      $('btnSave').textContent = 'Tetap simpan';
+      $('btnSave').classList.add('confirm');
+      return show(msg, warnings.join(' ') + ' Ketuk "Tetap simpan" kalau sudah benar.', 'warn');
+    }
+
+    var item = {
+      id: uid(), tanggal: tanggal, unit: unit, pengirim: cfg.nama,
+      hmAwal: a, hmAkhir: b, solar: s, catatan: catatan, dibuat: new Date().toISOString()
+    };
+    queue.push(item);
+    save(KEY.q, queue);
+    meta.lastHm = meta.lastHm || {};
+    meta.lastHm[unit] = b;
+    save(KEY.meta, meta);
+
+    // Kosongkan isian, tanggal tetap
+    ['unit', 'hmAwal', 'hmAkhir', 'solar', 'catatan'].forEach(function (id) { $(id).value = ''; });
+    $('unitHint').textContent = '';
+    resetConfirm(); recalc();
+    show(msg, navigator.onLine ? 'Tersimpan. Sedang dikirim ke sheet...' : 'Tersimpan di HP. Akan terkirim otomatis saat ada sinyal.', 'ok');
+    renderLists();
+    sync();
+  });
+
+  // ---------- Kirim antrean ----------
+  function sync() {
+    if (syncing || !queue.length || !cfg) return Promise.resolve();
+    if (!ENDPOINT || ENDPOINT.indexOf('http') !== 0) {
+      lastSyncError = 'Alamat server belum diatur di config.js.';
+      renderLists();
+      return Promise.resolve();
+    }
+    syncing = true;
+    $('btnSync').textContent = 'Mengirim...';
+    var items = queue.slice();
+    var chain = Promise.resolve(true);
+    items.forEach(function (it) {
+      chain = chain.then(function (cont) {
+        if (!cont) return false;
+        var body = JSON.stringify(Object.assign({}, it, { pin: cfg.pin }));
+        return fetch(ENDPOINT, { method: 'POST', body: body })
+          .then(function (r) { return r.json(); })
+          .then(function (j) {
+            if (j.ok) {
+              queue = queue.filter(function (q) { return q.id !== it.id; });
+              save(KEY.q, queue);
+              sent.unshift(Object.assign({}, it, { row: j.row, terkirim: new Date().toISOString() }));
+              sent = sent.slice(0, 20);
+              save(KEY.sent, sent);
+              lastSyncError = '';
+              return true;
+            }
+            lastSyncError = 'Ditolak server: ' + (j.error || 'tidak diketahui');
+            return false;
+          })
+          .catch(function () {
+            lastSyncError = navigator.onLine ? 'Gagal terhubung ke server. Dicoba lagi otomatis.' : 'Belum ada sinyal. Dicoba lagi otomatis.';
+            return false;
+          });
+      });
+    });
+    return chain.then(function () {
+      syncing = false;
+      $('btnSync').textContent = 'Kirim sekarang';
+      renderLists();
+      if (!queue.length) {
+        var m = $('msg');
+        if (m.classList.contains('ok')) show(m, 'Semua laporan sudah terkirim ke sheet.', 'ok');
+        refreshMeta();
+      }
+    });
+  }
+  $('btnSync').addEventListener('click', function () { sync(); });
+
+  // ---------- Daftar ----------
+  function line(it) {
+    return '<span class="t">' + esc(it.unit) + ' · ' + esc(tglID(it.tanggal)) + '</span><br>' +
+      '<span class="s">HM ' + fmt(it.hmAwal) + ' → ' + fmt(it.hmAkhir) + ' (' + fmt(it.hmAkhir - it.hmAwal) + ' jam)' +
+      (it.solar !== null && it.solar !== undefined ? ' · Solar ' + fmt(it.solar) + ' L' : '') + '</span>';
+  }
+  function renderLists() {
+    $('qCount').textContent = queue.length;
+    $('qList').innerHTML = queue.map(function (it) { return '<li>' + line(it) + '</li>'; }).join('') ||
+      '<li class="s">Tidak ada.</li>';
+    $('qMsg').textContent = queue.length ? lastSyncError : '';
+    $('btnSync').hidden = !queue.length;
+    $('sentList').innerHTML = sent.slice(0, 10).map(function (it) {
+      return '<li>' + line(it) + '<br><span class="s">Baris ' + esc(it.row) + ' di sheet</span></li>';
+    }).join('') || '<li class="s">Belum ada.</li>';
+  }
+
+  // ---------- Mulai ----------
+  renderNet();
+  window.addEventListener('online', function () { renderNet(); refreshMeta(); sync(); });
+  window.addEventListener('offline', renderNet);
+  document.addEventListener('visibilitychange', function () { if (!document.hidden) sync(); });
+  setInterval(function () { if (queue.length) sync(); }, 30000);
+
+  if (cfg) { showApp(); refreshMeta(); sync(); } else { showSetup(); }
+
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', function () { navigator.serviceWorker.register('sw.js').catch(function () {}); });
+  }
+})();
+</script>
+</body>
+</html>
