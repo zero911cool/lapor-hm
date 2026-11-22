@@ -1,4 +1,5 @@
 // URL aplikasi web dari Apps Script (berakhiran /exec).
+// Server: sheet "Log HM & Solar Unit - Kembang Mapan" (akun kembangmapan@gmail.com)
 window.APP_CONFIG = {
-  ENDPOINT: 'https://script.google.com/macros/s/AKfycbxmNw8yaeTIb6OWMzhdQS-r3FBDH1SFJV1qVT4B7TfCjmRZwme5qHGL8L7ROKu7DR14/exec'
+  ENDPOINT: 'https://script.google.com/macros/s/AKfycbw6KC5WjLa8wW8YeusY-C8r8rgFxvHES1VnRtRl7HlPjsFbMvbZjPVXlevYqFdGUpjtOQ/exec'
 };

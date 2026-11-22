@@ -1,6 +1,6 @@
 // Service worker: menyimpan file aplikasi di HP supaya bisa dibuka tanpa sinyal.
 // Naikkan nomor versi setiap kali file aplikasi diubah.
-const CACHE = 'lapor-hm-v4';
+const CACHE = 'lapor-hm-v5';
 const ASSETS = [
   './',
   './index.html',
