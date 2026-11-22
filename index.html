@@ -57,6 +57,15 @@
   ul.list .s { color: var(--muted); font-size: 13px; }
   .count { font-weight: 700; }
   .foot { font-size: 13px; color: var(--muted); text-align: center; margin-top: 8px; }
+  .seg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .seg button { margin: 0; padding: 12px 6px; font-size: 16px; background: #E6EAF2; color: var(--navy); border: 2px solid transparent; }
+  .seg button.on { background: var(--navy); color: #fff; }
+  .seg button.on[data-v="Standby"] { background: #B26A00; }
+  .seg button.on[data-v="Rusak"] { background: var(--err); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; padding: 1px 8px; border-radius: 999px; margin-left: 6px; }
+  .tag.Operasi { background: var(--ok-bg); color: var(--ok); }
+  .tag.Standby { background: var(--warn-bg); color: var(--warn); }
+  .tag.Rusak { background: var(--err-bg); color: var(--err); }
   [hidden] { display: none !important; }
 </style>
 <script src="config.js"></script>
@@ -89,6 +98,14 @@
       <input id="unit" list="unitList" autocapitalize="characters" autocomplete="off" placeholder="Kode unit" required>
       <datalist id="unitList"></datalist>
       <div id="unitHint" class="hint"></div>
+
+      <label>Status unit</label>
+      <div id="statusSeg" class="seg" role="radiogroup" aria-label="Status unit">
+        <button type="button" data-v="Operasi" class="on" aria-pressed="true">Operasi</button>
+        <button type="button" data-v="Standby" aria-pressed="false">Standby</button>
+        <button type="button" data-v="Rusak" aria-pressed="false">Rusak</button>
+      </div>
+      <div id="statusHint" class="hint"></div>
 
       <div class="row">
         <div>
@@ -151,6 +168,12 @@
   var meta = load(KEY.meta, { units: [], lastHm: {} });
   var syncing = false;
   var pendingConfirm = null;
+  var status = 'Operasi';
+  var CATATAN_HINT = {
+    Operasi: 'Kondisi unit, lokasi, kendala',
+    Standby: 'Alasan standby, mis. hujan / tidak ada pekerjaan / tidak ada operator',
+    Rusak: 'Jelaskan kerusakan dan perbaikannya'
+  };
   var lastSyncError = '';
 
   // ---------- Angka ----------
@@ -264,7 +287,7 @@
     if (u && typeof last === 'number') {
       $('unitHint').textContent = 'HM terakhir unit ini: ' + fmt(last) +
         (isBackdated() ? ' (laporan tanggal mundur: isi HM sesuai hari itu)' : '');
-      if (!$('hmAwal').value && !isBackdated()) { $('hmAwal').value = String(last).replace('.', ','); recalc(); }
+      if (!$('hmAwal').value && !isBackdated()) { $('hmAwal').value = String(last).replace('.', ','); syncStatusHm(); recalc(); }
     } else {
       $('unitHint').textContent = '';
     }
@@ -272,6 +295,30 @@
   $('tanggal').addEventListener('change', unitHint);
   $('unit').addEventListener('change', unitHint);
   $('unit').addEventListener('blur', unitHint);
+
+  // ---------- Status unit ----------
+  function setStatus(v) {
+    status = v;
+    Array.prototype.forEach.call(document.querySelectorAll('#statusSeg button'), function (b) {
+      var on = b.getAttribute('data-v') === v;
+      b.classList.toggle('on', on);
+      b.setAttribute('aria-pressed', on ? 'true' : 'false');
+    });
+    $('catatan').placeholder = CATATAN_HINT[v];
+    $('statusHint').textContent = v === 'Operasi' ? '' :
+      'Unit tidak bekerja penuh: HM akhir otomatis sama dengan HM awal (bisa diubah kalau sempat bekerja).';
+    syncStatusHm();
+    recalc();
+  }
+  function syncStatusHm() {
+    if (status !== 'Operasi' && $('hmAwal').value && !$('hmAkhir').value) {
+      $('hmAkhir').value = $('hmAwal').value;
+    }
+  }
+  Array.prototype.forEach.call(document.querySelectorAll('#statusSeg button'), function (b) {
+    b.addEventListener('click', function () { setStatus(b.getAttribute('data-v')); });
+  });
+  $('hmAwal').addEventListener('change', function () { syncStatusHm(); recalc(); });
 
   // ---------- Hitung otomatis ----------
   function recalc() {
@@ -281,7 +328,7 @@
     $('cKons').textContent = s !== null ? fmt(s, 0) : 'Tidak isi';
     resetConfirm();
   }
-  ['hmAwal', 'hmAkhir', 'solar', 'unit', 'tanggal'].forEach(function (id) { $(id).addEventListener('input', recalc); });
+  ['hmAwal', 'hmAkhir', 'solar', 'unit', 'tanggal', 'catatan'].forEach(function (id) { $(id).addEventListener('input', recalc); });
 
   function resetConfirm() {
     pendingConfirm = null;
@@ -317,12 +364,14 @@
       }
     }
     if (b - a > 24) warnings.push('Jam kerja ' + fmt(b - a) + ' jam, lebih dari 24 jam.');
+    if (status === 'Operasi' && b - a === 0) warnings.push('Jam kerja 0 tapi status Operasi. Pilih Standby atau Rusak kalau unit tidak bekerja.');
+    if (status === 'Rusak' && !catatan) warnings.push('Keterangan kerusakan di Catatan masih kosong.');
     if (!(meta.units || []).length || (meta.units || []).some(function (u) { return u.kode === unit; })) {
       // unit dikenal atau daftar unit belum diisi
     } else {
       warnings.push('Unit ' + unit + ' tidak ada di daftar unit.');
     }
-    var sig = [tanggal, unit, a, b, s].join('|');
+    var sig = [tanggal, unit, status, a, b, s, catatan].join('|');
     if (warnings.length && pendingConfirm !== sig) {
       pendingConfirm = sig;
       $('btnSave').textContent = 'Tetap simpan';
@@ -331,7 +380,7 @@
     }
 
     var item = {
-      id: uid(), tanggal: tanggal, unit: unit, pengirim: cfg.nama,
+      id: uid(), tanggal: tanggal, unit: unit, status: status, pengirim: cfg.nama,
       hmAwal: a, hmAkhir: b, solar: s, catatan: catatan, dibuat: new Date().toISOString()
     };
     queue.push(item);
@@ -343,6 +392,7 @@
     // Kosongkan isian, tanggal tetap
     ['unit', 'hmAwal', 'hmAkhir', 'solar', 'catatan'].forEach(function (id) { $(id).value = ''; });
     $('unitHint').textContent = '';
+    setStatus('Operasi');
     resetConfirm(); recalc();
     show(msg, navigator.onLine ? 'Tersimpan. Sedang dikirim ke sheet...' : 'Tersimpan di HP. Akan terkirim otomatis saat ada sinyal.', 'ok');
     renderLists();
@@ -401,7 +451,8 @@
 
   // ---------- Daftar ----------
   function line(it) {
-    return '<span class="t">' + esc(it.unit) + ' · ' + esc(tglID(it.tanggal)) + '</span><br>' +
+    var st = it.status || 'Operasi';
+    return '<span class="t">' + esc(it.unit) + ' · ' + esc(tglID(it.tanggal)) + '</span><span class="tag ' + esc(st) + '">' + esc(st) + '</span><br>' +
       '<span class="s">HM ' + fmt(it.hmAwal) + ' → ' + fmt(it.hmAkhir) + ' (' + fmt(it.hmAkhir - it.hmAwal) + ' jam)' +
       (it.solar !== null && it.solar !== undefined ? ' · Solar ' + fmt(it.solar) + ' L' : '') + '</span>';
   }
