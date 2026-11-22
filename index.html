@@ -102,14 +102,14 @@
       </div>
 
       <label for="solar">Solar (liter)</label>
-      <input id="solar" inputmode="decimal" placeholder="0">
+      <input id="solar" inputmode="decimal" placeholder="Kosongkan kalau tidak isi solar">
 
       <label for="catatan">Catatan (opsional)</label>
       <textarea id="catatan" placeholder="Kondisi unit, lokasi, kendala"></textarea>
 
       <div class="calc">
         <div><b id="cJam">–</b><span>Jam kerja</span></div>
-        <div><b id="cKons">–</b><span>Liter per jam</span></div>
+        <div><b id="cKons">–</b><span>Solar diisi (liter)</span></div>
       </div>
 
       <button id="btnSave" type="submit">Simpan laporan</button>
@@ -268,7 +268,7 @@
     var a = parseNum($('hmAwal').value), b = parseNum($('hmAkhir').value), s = parseNum($('solar').value);
     var jam = (a !== null && b !== null) ? b - a : null;
     $('cJam').textContent = jam === null ? '–' : fmt(jam);
-    $('cKons').textContent = (jam !== null && jam > 0 && s !== null) ? fmt(s / jam) : '–';
+    $('cKons').textContent = s !== null ? fmt(s, 0) : 'Tidak isi';
     resetConfirm();
   }
   ['hmAwal', 'hmAkhir', 'solar', 'unit', 'tanggal'].forEach(function (id) { $(id).addEventListener('input', recalc); });
